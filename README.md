@@ -1,12 +1,14 @@
-# Stock Market RAG Agent
+# Stock Market LangGraph RAG Agent
 
 A modern chat interface for querying Stock Market Performance data using LangGraph, FastAPI, and a simple HTML frontend.
+
+Repository: https://github.com/devankitv/langgraph-rag.git
 
 ## Setup and Installation
 
 ### Step 1: Clone and Navigate
 ```bash
-git clone <repository-url>
+git clone https://github.com/devankitv/langgraph-rag.git
 cd langgraph-rag
 ```
 
@@ -32,7 +34,7 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 ```bash
 # Create .env file
-echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 Replace `your_openai_api_key_here` with your actual OpenAI API key.
@@ -87,12 +89,6 @@ langgraph-rag/
 │   │   ├── api/
 │   │   │   ├── __init__.py
 │   │   │   └── main.py          # FastAPI application
-│   │   ├── core/
-│   │   │   └── __init__.py      # Core business logic
-│   │   ├── models/
-│   │   │   └── __init__.py      # Data models
-│   │   ├── services/
-│   │   │   └── __init__.py      # Business services
 │   │   └── __init__.py
 │   ├── frontend/
 │   │   ├── templates/
@@ -111,7 +107,6 @@ langgraph-rag/
 │   │   └── tutorials/           # Documentation and tutorials
 │   ├── scripts/
 │   │   └── start_app.py         # Startup script
-│   ├── tests/                   # Test files
 │   └── __init__.py
 ├── vectorstore/                  # ChromaDB vector store
 ├── venv/                        # Virtual environment
@@ -128,38 +123,7 @@ langgraph-rag/
 - OpenAI embeddings and GPT-4
 - PDF document processing
 - FastAPI REST API
-- CORS support
 
-## Configuration
-
-### Environment Variables
-
-**Backend (.env):**
-```
-OPENAI_API_KEY=your_openai_api_key
-```
-
-## 📚 Usage
-
-1. **Ask Questions**: Type questions about stock market performance in 2024
-2. **Streaming Responses**: Watch responses appear in real-time
-3. **Edit Messages**: Click the edit icon to modify your questions
-4. **Regenerate**: Use the regenerate button to get new responses
-5. **Copy Responses**: Copy any assistant response to clipboard
-
-## Development
-
-### Backend Development
-```bash
-cd src/backend/api
-python3 main.py
-```
-
-### Frontend Development
-```bash
-cd src/frontend
-python3 server.py
-```
 
 ### Adding New Documents
 1. Place PDF files in `src/data/`
