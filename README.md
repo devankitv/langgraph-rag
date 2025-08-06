@@ -2,24 +2,64 @@
 
 A modern chat interface for querying Stock Market Performance data using LangGraph, FastAPI, and a simple HTML frontend.
 
-## 🚀 Quick Start
+## Setup and Installation
+
+### Step 1: Clone and Navigate
+```bash
+git clone <repository-url>
+cd langgraph-rag
+```
+
+### Step 2: Create Virtual Environment
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+# venv\Scripts\activate
+```
+
+### Step 3: Install Dependencies
+```bash
+# Install all required packages
+pip install -r requirements.txt
+```
+
+### Step 4: Environment Configuration
+Create a `.env` file in the root directory:
+```bash
+# Create .env file
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+```
+
+Replace `your_openai_api_key_here` with your actual OpenAI API key.
+
+## Quick Start
 
 ### Option 1: Use the startup script (Recommended)
 ```bash
-python3 start_app.py
+# Make sure virtual environment is activated
+source venv/bin/activate  # On macOS/Linux
+# venv\Scripts\activate   # On Windows
+
+# Run the application
+python3 main.py
 ```
 
 ### Option 2: Manual setup
 
 1. **Start the FastAPI backend:**
    ```bash
-   cd api
+   cd src/backend/api
    python3 main.py
    ```
 
 2. **Start the frontend server:**
    ```bash
-   cd frontend
+   cd src/frontend
    python3 server.py
    ```
 
@@ -27,7 +67,7 @@ python3 start_app.py
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
 
-## 🏗️ Architecture
+## Architecture
 
 ### Backend (FastAPI + LangGraph)
 - **RAG Agent**: LangGraph-based retrieval-augmented generation
@@ -37,46 +77,60 @@ python3 start_app.py
 
 ### Frontend (Simple HTML + JavaScript)
 - **UI**: Clean HTML interface with JavaScript
-- **Features**: Real-time streaming, message editing, copy functionality
-- **Styling**: Modern CSS with responsive design
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-langgraph/
-├── ai_agents/
-│   ├── rag_agent.py          # LangGraph RAG agent
-│   └── Stock_Market_Performance_2024.pdf
-├── api/
-│   └── main.py               # FastAPI backend
-├── frontend/
-│   ├── index.html            # Main chat interface
-│   └── server.py             # Simple HTTP server
-├── vectorstore/              # ChromaDB vector store
-├── start_app.py              # Startup script
+langgraph-rag/
+├── src/
+│   ├── backend/
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   └── main.py          # FastAPI application
+│   │   ├── core/
+│   │   │   └── __init__.py      # Core business logic
+│   │   ├── models/
+│   │   │   └── __init__.py      # Data models
+│   │   ├── services/
+│   │   │   └── __init__.py      # Business services
+│   │   └── __init__.py
+│   ├── frontend/
+│   │   ├── templates/
+│   │   │   └── index.html       # Main chat interface
+│   │   ├── static/              # Static assets
+│   │   ├── server.py            # HTTP server
+│   │   └── __init__.py
+│   ├── agents/
+│   │   ├── __init__.py
+│   │   └── rag_agent.py         # LangGraph RAG agent
+│   ├── config/
+│   │   └── settings.py          # Application configuration
+│   ├── data/
+│   │   └── Stock_Market_Performance_2024.pdf
+│   ├── docs/
+│   │   └── tutorials/           # Documentation and tutorials
+│   ├── scripts/
+│   │   └── start_app.py         # Startup script
+│   ├── tests/                   # Test files
+│   └── __init__.py
+├── vectorstore/                  # ChromaDB vector store
+├── venv/                        # Virtual environment
+├── main.py                      # Main entry point
+├── requirements.txt              # Python dependencies
 └── README.md
 ```
 
-## 🎯 Features
+## Features
 
 ### Backend Features
-- ✅ LangGraph-based RAG agent
-- ✅ ChromaDB vector store
-- ✅ OpenAI embeddings and GPT-4
-- ✅ PDF document processing
-- ✅ FastAPI REST API
-- ✅ CORS support
+- LangGraph-based RAG agent
+- ChromaDB vector store
+- OpenAI embeddings and GPT-4
+- PDF document processing
+- FastAPI REST API
+- CORS support
 
-### Frontend Features
-- ✅ Clean and modern UI
-- ✅ Real-time streaming responses
-- ✅ Message editing and regeneration
-- ✅ Copy message functionality
-- ✅ Suggested questions
-- ✅ Responsive design
-- ✅ Markdown support
-
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -93,37 +147,24 @@ OPENAI_API_KEY=your_openai_api_key
 4. **Regenerate**: Use the regenerate button to get new responses
 5. **Copy Responses**: Copy any assistant response to clipboard
 
-## 🛠️ Development
+## Development
 
 ### Backend Development
 ```bash
-cd api
+cd src/backend/api
 python3 main.py
 ```
 
 ### Frontend Development
 ```bash
-cd frontend
+cd src/frontend
 python3 server.py
 ```
 
 ### Adding New Documents
-1. Place PDF files in `ai_agents/`
-2. Update the `pdf_path` in `rag_agent.py`
+1. Place PDF files in `src/data/`
+2. Update the `pdf_path` in `src/config/settings.py`
 3. Restart the backend
-
-## 🚀 Deployment
-
-### Backend Deployment
-- Deploy to any Python hosting platform (Railway, Heroku, etc.)
-- Set environment variables
-- Update CORS origins in `api/main.py`
-
-### Frontend Deployment
-- Deploy to any static hosting service
-- Update API endpoint URLs in `frontend/index.html`
-
-## 📖 API Documentation
 
 ### POST /query
 Query the RAG agent with a question.
@@ -143,20 +184,3 @@ Query the RAG agent with a question.
   "error": null
 }
 ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test both backend and frontend
-5. Submit a pull request
-
-## 📄 License
-
-This project is open source and available under the MIT License.
-
-## 🙏 Acknowledgments
-
-- [LangGraph](https://github.com/langchain-ai/langgraph) for the RAG agent framework
-- [FastAPI](https://fastapi.tiangolo.com/) for the backend API 

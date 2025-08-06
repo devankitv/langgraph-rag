@@ -60,7 +60,11 @@ htmlcov/
 # ChromaDB
 chroma_db/
 *.db
-*.sqlite 
+*.sqlite
+
+# Vector Store
+vectorstore/*
+!vectorstore/.gitkeep 
 
 # Frontend
 */node_modules/
