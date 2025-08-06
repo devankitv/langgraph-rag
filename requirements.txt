@@ -1,0 +1,13 @@
+langgraph
+langchain
+ipython
+langchain_openai
+langchain_community
+python-dotenv
+typing-extensions
+chromadb
+langchain_chroma
+fastapi
+uvicorn
+pydantic
+pypdf 
