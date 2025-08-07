@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 import sys
 import os
 import asyncio
@@ -30,7 +30,7 @@ class QueryRequest(BaseModel):
     question: str
 
 class QueryResponse(BaseModel):
-    answer: str
+    messages: List[Dict[str, Any]]
     success: bool
     error: str = None
 
@@ -47,16 +47,85 @@ async def query_rag_agent(request: QueryRequest):
         # Invoke the RAG agent
         result = rag_agent.invoke({"messages": messages})
         
-        # Extract the answer from the last message
-        answer = result['messages'][-1].content
+        # Convert messages to a format that can be serialized
+        serialized_messages = []
+        for message in result['messages']:
+            if hasattr(message, 'tool_calls') and message.tool_calls:
+                # Handle tool calls
+                content = []
+                for tool_call in message.tool_calls:
+                    content.append({
+                        "type": "tool-call",
+                        "toolCallId": tool_call['id'],
+                        "toolName": tool_call['name'],
+                        "args": tool_call['args']
+                    })
+                serialized_messages.append({
+                    "role": "assistant",
+                    "content": content
+                })
+            elif hasattr(message, 'tool_call_id'):
+                # Handle tool results
+                serialized_messages.append({
+                    "role": "tool",
+                    "content": [{
+                        "type": "tool-result",
+                        "toolCallId": message.tool_call_id,
+                        "result": {
+                            "result": message.content
+                        }
+                    }]
+                })
+            elif hasattr(message, 'type') and message.type == "ai":
+                # Handle AI assistant messages
+                serialized_messages.append({
+                    "role": "assistant",
+                    "content": [{
+                        "type": "text",
+                        "text": message.content
+                    }]
+                })
+            elif hasattr(message, 'type') and message.type == "human":
+                # Handle human messages
+                serialized_messages.append({
+                    "role": "user",
+                    "content": [{
+                        "type": "text",
+                        "text": message.content
+                    }]
+                })
+            else:
+                # Handle other messages (default to assistant)
+                serialized_messages.append({
+                    "role": "assistant",
+                    "content": [{
+                        "type": "text",
+                        "text": message.content
+                    }]
+                })
+        
+        # Ensure we have at least one assistant message with text content
+        assistant_messages = [msg for msg in serialized_messages if msg['role'] == 'assistant']
+        if not assistant_messages or not any(
+            any(part.get('type') == 'text' for part in msg['content']) 
+            for msg in assistant_messages
+        ):
+            # Add a fallback assistant message if none exists
+            serialized_messages.append({
+                "role": "assistant",
+                "content": [{
+                    "type": "text",
+                    "text": "I've processed your request and found relevant information."
+                }]
+            })
         
         return QueryResponse(
-            answer=answer,
+            messages=serialized_messages,
             success=True
         )
     except Exception as e:
         return QueryResponse(
-            answer="",
+            messages=[],
             success=False,
             error=str(e)
         )

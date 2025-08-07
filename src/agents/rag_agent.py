@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import sys
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Annotated, Sequence
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, ToolMessage
@@ -10,6 +11,11 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.tools import tool
+
+# Add the project root to Python path to handle imports
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 load_dotenv()
 
@@ -183,6 +189,20 @@ def query_rag_agent(question: str):
     messages = [HumanMessage(content=question)]
     result = rag_agent.invoke({"messages": messages})
     return result['messages'][-1].content
+
+# Get the PNG data
+png_data = rag_agent.get_graph().draw_mermaid_png()
+# Save the graph image to root directory
+import os
+# Get the current filename without extension
+current_filename = os.path.splitext(os.path.basename(__file__))[0]
+# Save to root directory (workspace root)
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+image_filename = os.path.join(root_dir, f"{current_filename}.png")
+# Save the PNG data to file
+with open(image_filename, 'wb') as f:
+    f.write(png_data)
+print(f"Graph image saved as: {image_filename}")
 
 
 # Only run the interactive mode if this file is run directly

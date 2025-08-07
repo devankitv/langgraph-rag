@@ -1,6 +1,6 @@
 # Stock Market LangGraph RAG Agent
 
-A modern chat interface for querying Stock Market Performance data using LangGraph, FastAPI, and a simple HTML frontend.
+A modern chat interface for querying Stock Market Performance data using LangGraph, FastAPI, and React + Vite frontend.
 
 Repository: https://github.com/devankitv/langgraph-rag.git
 
@@ -26,8 +26,13 @@ source venv/bin/activate
 
 ### Step 3: Install Dependencies
 ```bash
-# Install all required packages
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Install frontend dependencies
+cd src/frontend
+npm install
+cd ../..
 ```
 
 ### Step 4: Environment Configuration
@@ -59,14 +64,14 @@ python3 main.py
    python3 main.py
    ```
 
-2. **Start the frontend server:**
+2. **Start the React frontend:**
    ```bash
    cd src/frontend
-   python3 server.py
+   npm run dev
    ```
 
 3. **Access the application:**
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:5173 (Vite dev server)
    - Backend API: http://localhost:8000
 
 ## Architecture
@@ -77,8 +82,14 @@ python3 main.py
 - **Knowledge Base**: Stock Market Performance 2024 PDF
 - **API**: FastAPI with CORS support
 
-### Frontend (Simple HTML + JavaScript)
-- **UI**: Clean HTML interface with JavaScript
+### Frontend (React + Vite + TypeScript)
+- **Framework**: React 19 with TypeScript
+- **Build Tool**: Vite for fast development and building
+- **UI Components**: Custom components with Tailwind CSS
+- **Assistant UI**: @assistant-ui/react for chat interface
+- **Styling**: Tailwind CSS with class-variance-authority
+- **Icons**: Lucide React icons
+- **Animations**: Framer Motion
 
 ## Project Structure
 
@@ -91,11 +102,21 @@ langgraph-rag/
 │   │   │   └── main.py          # FastAPI application
 │   │   └── __init__.py
 │   ├── frontend/
-│   │   ├── templates/
-│   │   │   └── index.html       # Main chat interface
-│   │   ├── static/              # Static assets
-│   │   ├── server.py            # HTTP server
-│   │   └── __init__.py
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   │   ├── assistant-ui/ # Chat interface components
+│   │   │   │   │   ├── thread.tsx
+│   │   │   │   │   ├── retriever-tool-ui.tsx
+│   │   │   │   │   ├── markdown-text.tsx
+│   │   │   │   │   └── tool-fallback.tsx
+│   │   │   │   └── ui/          # Reusable UI components
+│   │   │   ├── App.tsx          # Main React component
+│   │   │   ├── main.tsx         # React entry point
+│   │   │   └── MyRuntimeProvider.tsx
+│   │   ├── public/              # Static assets
+│   │   ├── package.json         # Frontend dependencies
+│   │   ├── vite.config.ts       # Vite configuration
+│   │   └── tsconfig.json        # TypeScript configuration
 │   ├── agents/
 │   │   ├── __init__.py
 │   │   └── rag_agent.py         # LangGraph RAG agent
@@ -124,6 +145,15 @@ langgraph-rag/
 - PDF document processing
 - FastAPI REST API
 
+### Frontend Features
+- Modern React 19 with TypeScript
+- Vite for fast development and building
+- Tailwind CSS for styling
+- Assistant UI components for chat interface
+- Responsive design
+- Real-time chat interface
+- Markdown rendering for responses
+- Tool integration UI
 
 ### Adding New Documents
 1. Place PDF files in `src/data/`
@@ -147,4 +177,25 @@ Query the RAG agent with a question.
   "success": true,
   "error": null
 }
+```
+
+## Development
+
+### Frontend Development
+```bash
+cd src/frontend
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run lint         # Run ESLint
+```
+
+### Backend Development
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run backend
+cd src/backend/api
+python3 main.py
 ```
