@@ -131,46 +131,9 @@ async def query_rag_agent(request: QueryRequest):
             error=str(e)
         )
 
-@app.post("/stream")
-async def stream_rag_agent_endpoint(request: QueryRequest):
-    """Streaming endpoint for frontend integration"""
-    try:
-        async def generate_stream():
-            async for chunk in stream_rag_agent(request.question):
-                # Send each chunk as a Server-Sent Event
-                yield f"data: {chunk}\n\n"
-            # Send completion signal
-            yield "data: [DONE]\n\n"
-        
-        return StreamingResponse(
-            generate_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
-            }
-        )
-    except Exception as e:
-        async def error_stream():
-            yield f"data: Error: {str(e)}\n\n"
-        
-        return StreamingResponse(
-            error_stream(),
-            media_type="text/event-stream",
-            status_code=500,
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
-            }
-        )
-
-@app.post("/stream-with-tools")
-async def stream_rag_agent_with_tools(request: QueryRequest):
-    """Advanced streaming endpoint that includes tool calls and results"""
+@app.post("/chat")
+async def chat_endpoint(request: QueryRequest):
+    """HTTP streaming chat endpoint with tool calls and results"""
     try:
         async def generate_stream():
             # First, get the complete response to extract tool information
@@ -197,7 +160,7 @@ async def stream_rag_agent_with_tools(request: QueryRequest):
             
             # Stream tool calls first
             for tool_call in tool_calls:
-                yield f"data: {json.dumps({'type': 'tool_call', 'data': tool_call})}\n\n"
+                yield json.dumps({'type': 'tool_call', 'data': tool_call}) + '\n'
                 await asyncio.sleep(0.1)
             
             # Stream tool results
@@ -207,7 +170,7 @@ async def stream_rag_agent_with_tools(request: QueryRequest):
                 if isinstance(simplified_result, dict) and 'result' in simplified_result:
                     simplified_result = simplified_result['result']
                 
-                yield f"data: {json.dumps({'type': 'tool_result', 'data': {'toolCallId': tool_result['toolCallId'], 'result': simplified_result}})}\n\n"
+                yield json.dumps({'type': 'tool_result', 'data': {'toolCallId': tool_result['toolCallId'], 'result': simplified_result}}) + '\n'
                 await asyncio.sleep(0.1)
             
             # Stream the final response
@@ -216,15 +179,15 @@ async def stream_rag_agent_with_tools(request: QueryRequest):
             
             words = final_text.split(' ')
             for word in words:
-                yield f"data: {json.dumps({'type': 'text', 'data': f'{word} '})}\n\n"
+                yield json.dumps({'type': 'text', 'data': f'{word} '}) + '\n'
                 await asyncio.sleep(0.03)
             
             # Send completion signal
-            yield "data: [DONE]\n\n"
+            yield json.dumps({'type': 'done'}) + '\n'
         
         return StreamingResponse(
             generate_stream(),
-            media_type="text/event-stream",
+            media_type="text/plain",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
@@ -234,11 +197,11 @@ async def stream_rag_agent_with_tools(request: QueryRequest):
         )
     except Exception as e:
         async def error_stream():
-            yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
+            yield json.dumps({'type': 'error', 'data': str(e)}) + '\n'
         
         return StreamingResponse(
             error_stream(),
-            media_type="text/event-stream",
+            media_type="text/plain",
             status_code=500,
             headers={
                 "Cache-Control": "no-cache",

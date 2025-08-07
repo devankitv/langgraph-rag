@@ -23,8 +23,8 @@ const MyModelAdapter: ChatModelAdapter = {
       ? latestUserMessage.map(item => item.type === "text" ? item.text : "").join("")
       : latestUserMessage;
 
-    // Use the streaming endpoint
-    const response = await fetch("http://localhost:8000/stream-with-tools", {
+    // Use the chat endpoint
+    const response = await fetch("http://localhost:8000/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -59,103 +59,118 @@ const MyModelAdapter: ChatModelAdapter = {
         const lines = chunk.split('\n');
         
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6); // Remove 'data: ' prefix
-            if (data && data !== '[DONE]') {
-              try {
-                const parsed = JSON.parse(data);
+          if (line.trim()) { // Only process non-empty lines
+            try {
+              const parsed = JSON.parse(line);
+              
+              if (parsed.type === 'tool_call') {
+                // Add tool call to our collection
+                toolCalls.push({
+                  type: "tool-call",
+                  toolCallId: parsed.data.id,
+                  toolName: parsed.data.name,
+                  args: parsed.data.args,
+                  argsText: JSON.stringify(parsed.data.args, null, 2),
+                });
                 
-                if (parsed.type === 'tool_call') {
-                  // Add tool call to our collection
-                  toolCalls.push({
+                // Yield message with tool calls
+                const content: ThreadAssistantMessagePart[] = [
+                  ...toolCalls.map(tc => ({
                     type: "tool-call",
-                    toolCallId: parsed.data.id,
-                    toolName: parsed.data.name,
-                    args: parsed.data.args,
-                    argsText: JSON.stringify(parsed.data.args, null, 2),
-                  });
-                  
-                  // Yield message with tool calls
-                  const content: ThreadAssistantMessagePart[] = [
-                    ...toolCalls.map(tc => ({
-                      type: "tool-call",
-                      toolCallId: tc.toolCallId,
-                      toolName: tc.toolName,
-                      args: tc.args,
-                      argsText: tc.argsText,
-                    } as ThreadAssistantMessagePart)),
-                  ];
-                  
-                  yield { content };
-                } else if (parsed.type === 'tool_result') {
-                  // Update the corresponding tool call with the result
-                  const toolCall = toolCalls.find(tc => tc.toolCallId === parsed.data.toolCallId);
-                  if (toolCall) {
-                    const result = parsed.data.result;
-                    toolCall.result = typeof result === 'object' && result.result ? result.result : result;
-                  }
-                  
-                  // Yield updated message with tool calls and results
-                  const content: ThreadAssistantMessagePart[] = [
-                    ...toolCalls.map(tc => ({
-                      type: "tool-call",
-                      toolCallId: tc.toolCallId,
-                      toolName: tc.toolName,
-                      args: tc.args,
-                      argsText: tc.argsText,
-                      result: tc.result,
-                    } as ThreadAssistantMessagePart)),
-                    ...(streamedText ? [{
-                      type: "text",
-                      text: streamedText,
-                    } as ThreadAssistantMessagePart] : []),
-                  ];
-                  
-                  yield { content };
-                } else if (parsed.type === 'text') {
-                  streamedText += parsed.data;
-                  
-                  // Yield message with tool calls and updated text
-                  const content: ThreadAssistantMessagePart[] = [
-                    ...toolCalls.map(tc => ({
-                      type: "tool-call",
-                      toolCallId: tc.toolCallId,
-                      toolName: tc.toolName,
-                      args: tc.args,
-                      argsText: tc.argsText,
-                      result: tc.result,
-                    } as ThreadAssistantMessagePart)),
-                    {
-                      type: "text",
-                      text: streamedText,
-                    } as ThreadAssistantMessagePart,
-                  ];
-                  
-                  yield { content };
+                    toolCallId: tc.toolCallId,
+                    toolName: tc.toolName,
+                    args: tc.args,
+                    argsText: tc.argsText,
+                  } as ThreadAssistantMessagePart)),
+                ];
+                
+                yield { content };
+              } else if (parsed.type === 'tool_result') {
+                // Update the corresponding tool call with the result
+                const toolCall = toolCalls.find(tc => tc.toolCallId === parsed.data.toolCallId);
+                if (toolCall) {
+                  const result = parsed.data.result;
+                  toolCall.result = typeof result === 'object' && result.result ? result.result : result;
                 }
-              } catch (e) {
-                // If JSON parsing fails, treat as plain text
-                if (data && !data.includes('[Tool Call:')) {
-                  streamedText += data;
-                  
-                  // Yield message with tool calls and updated text
-                  const content: ThreadAssistantMessagePart[] = [
-                    ...toolCalls.map(tc => ({
-                      type: "tool-call",
-                      toolCallId: tc.toolCallId,
-                      toolName: tc.toolName,
-                      args: tc.args,
-                      argsText: tc.argsText,
-                      result: tc.result,
-                    } as ThreadAssistantMessagePart)),
-                    {
-                      type: "text",
-                      text: streamedText,
-                    } as ThreadAssistantMessagePart,
-                  ];
-                  
-                  yield { content };
-                }
+                
+                // Yield updated message with tool calls and results
+                const content: ThreadAssistantMessagePart[] = [
+                  ...toolCalls.map(tc => ({
+                    type: "tool-call",
+                    toolCallId: tc.toolCallId,
+                    toolName: tc.toolName,
+                    args: tc.args,
+                    argsText: tc.argsText,
+                    result: tc.result,
+                  } as ThreadAssistantMessagePart)),
+                  ...(streamedText ? [{
+                    type: "text",
+                    text: streamedText,
+                  } as ThreadAssistantMessagePart] : []),
+                ];
+                
+                yield { content };
+              } else if (parsed.type === 'text') {
+                streamedText += parsed.data;
+                
+                // Yield message with tool calls and updated text
+                const content: ThreadAssistantMessagePart[] = [
+                  ...toolCalls.map(tc => ({
+                    type: "tool-call",
+                    toolCallId: tc.toolCallId,
+                    toolName: tc.toolName,
+                    args: tc.args,
+                    argsText: tc.argsText,
+                    result: tc.result,
+                  } as ThreadAssistantMessagePart)),
+                  {
+                    type: "text",
+                    text: streamedText,
+                  } as ThreadAssistantMessagePart,
+                ];
+                
+                yield { content };
+              } else if (parsed.type === 'done') {
+                // Final yield with complete content
+                const content: ThreadAssistantMessagePart[] = [
+                  ...toolCalls.map(tc => ({
+                    type: "tool-call",
+                    toolCallId: tc.toolCallId,
+                    toolName: tc.toolName,
+                    args: tc.args,
+                    argsText: tc.argsText,
+                    result: tc.result,
+                  } as ThreadAssistantMessagePart)),
+                  ...(streamedText ? [{
+                    type: "text",
+                    text: streamedText,
+                  } as ThreadAssistantMessagePart] : []),
+                ];
+                
+                yield { content };
+              }
+            } catch (e) {
+              // If JSON parsing fails, treat as plain text
+              if (line.trim() && !line.includes('[Tool Call:')) {
+                streamedText += line;
+                
+                // Yield message with tool calls and updated text
+                const content: ThreadAssistantMessagePart[] = [
+                  ...toolCalls.map(tc => ({
+                    type: "tool-call",
+                    toolCallId: tc.toolCallId,
+                    toolName: tc.toolName,
+                    args: tc.args,
+                    argsText: tc.argsText,
+                    result: tc.result,
+                  } as ThreadAssistantMessagePart)),
+                  {
+                    type: "text",
+                    text: streamedText,
+                  } as ThreadAssistantMessagePart,
+                ];
+                
+                yield { content };
               }
             }
           }
