@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import os
 import sys
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, Sequence
+from typing import TypedDict, Annotated, Sequence, AsyncGenerator
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, ToolMessage
 from operator import add as add_messages
 from langchain_openai import ChatOpenAI
@@ -11,6 +11,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.tools import tool
+import asyncio
 
 # Add the project root to Python path to handle imports
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,7 +21,10 @@ if project_root not in sys.path:
 load_dotenv()
 
 llm = ChatOpenAI(
-    model="gpt-4o", temperature = 0) # minimize hallucination - temperature = 0 makes the model output more deterministic 
+    model="gpt-4o", 
+    temperature=0,
+    streaming=True  # Enable streaming
+) # minimize hallucination - temperature = 0 makes the model output more deterministic 
 
 # Our Embedding Model - has to also be compatible with the LLM
 embeddings = OpenAIEmbeddings(
@@ -189,6 +193,106 @@ def query_rag_agent(question: str):
     messages = [HumanMessage(content=question)]
     result = rag_agent.invoke({"messages": messages})
     return result['messages'][-1].content
+
+
+# Advanced streaming function that handles the entire RAG process
+async def stream_rag_agent_advanced(question: str) -> AsyncGenerator[dict, None]:
+    """
+    Advanced streaming function that streams the entire RAG process including tool calls.
+    
+    Args:
+        question (str): The question to ask the RAG agent
+        
+    Yields:
+        dict: Streamed events with type and content
+    """
+    messages = [HumanMessage(content=question)]
+    
+    # Create a streaming LLM for this specific call
+    streaming_llm = ChatOpenAI(
+        model="gpt-4o", 
+        temperature=0,
+        streaming=True
+    ).bind_tools(tools)
+    
+    # First, let's try to stream the initial LLM response
+    messages_with_system = [SystemMessage(content=system_prompt)] + messages
+    
+    try:
+        # Try to stream the LLM response directly
+        async for chunk in streaming_llm.astream(messages_with_system):
+            if hasattr(chunk, 'content') and chunk.content:
+                yield {
+                    "type": "text",
+                    "content": chunk.content
+                }
+            elif hasattr(chunk, 'tool_calls') and chunk.tool_calls:
+                for tool_call in chunk.tool_calls:
+                    yield {
+                        "type": "tool_call",
+                        "content": {
+                            "id": tool_call['id'],
+                            "name": tool_call['name'],
+                            "args": tool_call['args']
+                        }
+                    }
+    except Exception:
+        # If direct streaming fails, fall back to the regular RAG agent
+        result = rag_agent.invoke({"messages": messages})
+        final_message = result['messages'][-1]
+        
+        # Stream the final response word by word
+        words = final_message.content.split(' ')
+        for word in words:
+            yield {
+                "type": "text",
+                "content": f"{word} "
+            }
+            await asyncio.sleep(0.03)
+
+# Keep the original streaming function for backward compatibility
+async def stream_rag_agent(question: str) -> AsyncGenerator[str, None]:
+    """
+    Stream the RAG agent response with a specific question.
+    
+    Args:
+        question (str): The question to ask the RAG agent
+        
+    Yields:
+        str: Streamed chunks of the agent's response
+    """
+    messages = [HumanMessage(content=question)]
+    
+    # Run the full RAG agent to get the complete response
+    result = rag_agent.invoke({"messages": messages})
+    
+    # Get the final response
+    final_message = result['messages'][-1]
+    
+    # Check if there were tool calls
+    tool_calls_present = any(
+        hasattr(msg, 'tool_calls') and msg.tool_calls 
+        for msg in result['messages']
+    )
+    
+    if tool_calls_present:
+        # If there were tool calls, indicate that tools were used
+        yield "[Tool Call: retriever_tool] "
+        # Add a small delay to simulate tool execution
+        await asyncio.sleep(0.5)
+    
+    # Extract the text content from the final message
+    if hasattr(final_message, 'content'):
+        final_text = final_message.content
+    else:
+        # If it's a structured message, try to extract text
+        final_text = str(final_message)
+    
+    # Stream the final response word by word
+    words = final_text.split(' ')
+    for word in words:
+        yield f"{word} "
+        await asyncio.sleep(0.03)  # 30ms delay between words
 
 # Get the PNG data
 png_data = rag_agent.get_graph().draw_mermaid_png()

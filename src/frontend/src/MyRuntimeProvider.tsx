@@ -8,7 +8,7 @@ import {
 } from "@assistant-ui/react";
 
 const MyModelAdapter: ChatModelAdapter = {
-  async run({ messages, abortSignal }) {
+  async *run({ messages, abortSignal }) {
     // Extract the latest user message as the question
     const latestUserMessage = messages
       .filter(msg => msg.role === "user")
@@ -23,87 +23,147 @@ const MyModelAdapter: ChatModelAdapter = {
       ? latestUserMessage.map(item => item.type === "text" ? item.text : "").join("")
       : latestUserMessage;
 
-    const result = await fetch("http://localhost:8000/query", {
+    // Use the streaming endpoint
+    const response = await fetch("http://localhost:8000/stream-with-tools", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      // Send the question in the format expected by your API
       body: JSON.stringify({
         question,
       }),
-      // if the user hits the "cancel" button or escape keyboard key, cancel the request
       signal: abortSignal,
     });
 
-    const data = await result.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || "API request failed");
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // Process the backend messages to create tool calls and final answer
-    const processedMessages: ThreadAssistantMessagePart[] = [];
-    
-    // Find tool calls and results
+    // Handle streaming response
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body");
+    }
+
+    let streamedText = "";
     const toolCalls: any[] = [];
-    const toolResults: any[] = [];
-    
-    for (const message of data.messages) {
-      if (message.role === "assistant" && Array.isArray(message.content)) {
-        for (const part of message.content) {
-          if (part.type === "tool-call") {
-            toolCalls.push(part);
-          }
-        }
-      } else if (message.role === "tool" && Array.isArray(message.content)) {
-        for (const part of message.content) {
-          if (part.type === "tool-result") {
-            toolResults.push(part);
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6); // Remove 'data: ' prefix
+            if (data && data !== '[DONE]') {
+              try {
+                const parsed = JSON.parse(data);
+                
+                if (parsed.type === 'tool_call') {
+                  // Add tool call to our collection
+                  toolCalls.push({
+                    type: "tool-call",
+                    toolCallId: parsed.data.id,
+                    toolName: parsed.data.name,
+                    args: parsed.data.args,
+                    argsText: JSON.stringify(parsed.data.args, null, 2),
+                  });
+                  
+                  // Yield message with tool calls
+                  const content: ThreadAssistantMessagePart[] = [
+                    ...toolCalls.map(tc => ({
+                      type: "tool-call",
+                      toolCallId: tc.toolCallId,
+                      toolName: tc.toolName,
+                      args: tc.args,
+                      argsText: tc.argsText,
+                    } as ThreadAssistantMessagePart)),
+                  ];
+                  
+                  yield { content };
+                } else if (parsed.type === 'tool_result') {
+                  // Update the corresponding tool call with the result
+                  const toolCall = toolCalls.find(tc => tc.toolCallId === parsed.data.toolCallId);
+                  if (toolCall) {
+                    const result = parsed.data.result;
+                    toolCall.result = typeof result === 'object' && result.result ? result.result : result;
+                  }
+                  
+                  // Yield updated message with tool calls and results
+                  const content: ThreadAssistantMessagePart[] = [
+                    ...toolCalls.map(tc => ({
+                      type: "tool-call",
+                      toolCallId: tc.toolCallId,
+                      toolName: tc.toolName,
+                      args: tc.args,
+                      argsText: tc.argsText,
+                      result: tc.result,
+                    } as ThreadAssistantMessagePart)),
+                    ...(streamedText ? [{
+                      type: "text",
+                      text: streamedText,
+                    } as ThreadAssistantMessagePart] : []),
+                  ];
+                  
+                  yield { content };
+                } else if (parsed.type === 'text') {
+                  streamedText += parsed.data;
+                  
+                  // Yield message with tool calls and updated text
+                  const content: ThreadAssistantMessagePart[] = [
+                    ...toolCalls.map(tc => ({
+                      type: "tool-call",
+                      toolCallId: tc.toolCallId,
+                      toolName: tc.toolName,
+                      args: tc.args,
+                      argsText: tc.argsText,
+                      result: tc.result,
+                    } as ThreadAssistantMessagePart)),
+                    {
+                      type: "text",
+                      text: streamedText,
+                    } as ThreadAssistantMessagePart,
+                  ];
+                  
+                  yield { content };
+                }
+              } catch (e) {
+                // If JSON parsing fails, treat as plain text
+                if (data && !data.includes('[Tool Call:')) {
+                  streamedText += data;
+                  
+                  // Yield message with tool calls and updated text
+                  const content: ThreadAssistantMessagePart[] = [
+                    ...toolCalls.map(tc => ({
+                      type: "tool-call",
+                      toolCallId: tc.toolCallId,
+                      toolName: tc.toolName,
+                      args: tc.args,
+                      argsText: tc.argsText,
+                      result: tc.result,
+                    } as ThreadAssistantMessagePart)),
+                    {
+                      type: "text",
+                      text: streamedText,
+                    } as ThreadAssistantMessagePart,
+                  ];
+                  
+                  yield { content };
+                }
+              }
+            }
           }
         }
       }
+    } finally {
+      reader.releaseLock();
     }
-
-    // Create tool call messages with results
-    for (const toolCall of toolCalls) {
-      const toolResult = toolResults.find(tr => tr.toolCallId === toolCall.toolCallId);
-      
-      processedMessages.push({
-        type: "tool-call",
-        toolCallId: toolCall.toolCallId,
-        toolName: toolCall.toolName,
-        args: toolCall.args,
-        argsText: JSON.stringify(toolCall.args),
-        result: toolResult?.result || undefined
-      } as ThreadAssistantMessagePart);
-    }
-
-    // Find the final text answer
-    const finalMessage = data.messages
-      .filter((msg: any) => msg.role === "assistant")
-      .reverse()
-      .find((msg: any) => 
-        Array.isArray(msg.content) && 
-        msg.content.some((part: any) => part.type === "text")
-      );
-
-    if (finalMessage) {
-      const textContent = finalMessage.content
-        .filter((part: any) => part.type === "text")
-        .map((part: any) => part.text)
-        .join(" ");
-
-      processedMessages.push({
-        type: "text",
-        text: textContent,
-      } as ThreadAssistantMessagePart);
-    }
-
-    // Return the processed messages
-    return {
-      content: processedMessages,
-    };
   },
 };
 
