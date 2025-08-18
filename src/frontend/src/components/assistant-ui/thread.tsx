@@ -86,7 +86,7 @@ const ThreadWelcome: FC = () => {
               transition={{ delay: 0.5 }}
               className="text-2xl font-semibold"
             >
-              Welcome to Stock Market Assistant!
+              Welcome to 360one Assistant!
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -108,26 +108,28 @@ const ThreadWelcomeSuggestions: FC = () => {
   return (
     <div className="grid w-full gap-2 sm:grid-cols-2">
       {[
-        {
-          title: "How did the S&P 500",
-          label: "perform in 2024?",
-          action: "How did the S&P 500 perform in 2024?",
-        },
-        {
-          title: "Tell me about the",
-          label: "Magnificent 7 tech stocks",
-          action: "Tell me about the Magnificent 7 tech stocks and their 2024 performance",
-        },
-        {
-          title: "What was Apple's",
-          label: "stock performance in 2024?",
-          action: "What was Apple's stock performance in 2024?",
-        },
-        {
-          title: "How did Amazon",
-          label: "perform in 2024?",
-          action: "How did Amazon perform in 2024?",
-        },
+       {
+        title: 'Fund Performance',
+        label: '360 One FOCUSED EQUITY FUND',
+        action: 'What is the Fund performance for 360 One FOCUSED EQUITY FUND?',
+      },
+      {
+        title: 'Investment Returns',
+        label: 'Rs. 10,000 in QUANT FUND',
+        action:
+          'What would be my Returns as of now if I had invested Rs. 10,000 in the 360 One QUANT FUND?',
+      },
+      {
+        title: 'Compare Performance',
+        label: 'LIQUID vs DYNAMIC BOND',
+        action:
+          'Compare the Performance between 360 One LIQUID FUND and 360 One DYNAMIC BOND FUND.',
+      },
+      {
+        title: 'Sector Allocation',
+        label: '360 One FLEXICAP FUND',
+        action: 'What is the Sector Allocation for 360 One FLEXICAP FUND?',
+      },
       ].map((suggestedAction, index) => (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
